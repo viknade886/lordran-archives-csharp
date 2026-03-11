@@ -1,0 +1,6 @@
+@lordran_archives_HostAddress = http://localhost:5125
+
+GET {{lordran_archives_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

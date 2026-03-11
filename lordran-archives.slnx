@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="lordran-archives/lordran-archives.csproj" />
+  <Project Path="LordranArchives.Console/LordranArchives.Console.csproj" />
+</Solution>

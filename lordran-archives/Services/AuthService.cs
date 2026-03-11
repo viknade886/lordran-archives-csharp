@@ -1,0 +1,69 @@
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using lordran_archives.Data;
+using lordran_archives.DTOs;
+using lordran_archives.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+
+namespace lordran_archives.Services
+{
+    public class AuthService
+    {
+        private readonly AppDbContext _db;
+        private readonly IConfiguration _config;
+
+        public AuthService(AppDbContext db, IConfiguration config)
+        {
+            _db = db;
+            _config = config;
+        }
+
+        public async Task<string?> Register(RegisterDto dto)
+        {
+            if (await _db.Users.AnyAsync(u => u.Username == dto.Username))
+                return null;
+
+            var user = new User
+            {
+                Username = dto.Username,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password)
+            };
+
+            _db.Users.Add(user);
+            await _db.SaveChangesAsync();
+            return "User created";
+        }
+
+        public async Task<AuthResponseDto?> Login(LoginDto dto)
+        {
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == dto.Username);
+            if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+                return null;
+
+            var token = GenerateToken(user);
+            return new AuthResponseDto { Token = token, Username = user.Username, Role = user.Role };
+        }
+
+        private string GenerateToken(User user)
+        {
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Secret"]!));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var claims = new[]
+            {
+                new Claim("id", user.Id.ToString()),
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim(ClaimTypes.Name, user.Username)
+            };
+
+            var token = new JwtSecurityToken(
+                claims: claims,
+                expires: DateTime.UtcNow.AddDays(7),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+    }
+}
